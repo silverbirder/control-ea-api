@@ -21,6 +21,8 @@ type vip struct {
  Currency Currency `json:"currency"`
  RelatedCurrency []Currency `json:"relatedCurrency"`
  Title string `json:"title"`
+ IsClose bool `json:"isClose"`
+ IsDelete bool `json:"isDelete"`
 }
 
 func GetVipData(w http.ResponseWriter, r *http.Request) {
@@ -39,6 +41,8 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
   Currency: USD,
   RelatedCurrency: []Currency{USD, CHF},
   Title: "なんか大変そうな発表, " + symbol,
+  IsClose:true,
+  IsDelete:true,
  }
  v2 := vip{
   StartDateTime: "2019/02/01 03:00:00",
@@ -46,6 +50,8 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
   Currency: USD,
   RelatedCurrency: []Currency{USD, CHF, GBP},
   Title: "なんか大変そうな発表2, " + symbol[3:],
+  IsClose:true,
+  IsDelete:false,
  }
  v3 := vip{
   StartDateTime: "2019/02/01 22:00:00",
@@ -53,6 +59,8 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
   Currency: USD,
   RelatedCurrency: []Currency{EUR, JPY},
   Title: "なんか大変そうな発表3, " + symbol[:3],
+  IsClose:false,
+  IsDelete:true,
  }
  vp := []vip{v1, v2, v3,}
  res, err := json.Marshal(vp)
