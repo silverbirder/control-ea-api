@@ -19,10 +19,19 @@ type vip struct {
  StartDateTime string `json:"startDateTime"`
  EndDateTime string `json:"endDateTime"`
  Currency Currency `json:"currency"`
- RelatedCurrency []Currency `json:"relatedCurrency"`
+ RelatedCurrency []relatedCurrency `json:"relatedCurrency"`
  Title string `json:"title"`
  IsClose bool `json:"isClose"`
  IsDelete bool `json:"isDelete"`
+}
+
+type response struct {
+ Status string `json:"status"`
+ Vips []vip `json:"vips"`
+}
+
+type relatedCurrency struct {
+ Currency Currency `json:"currency"`
 }
 
 func GetVipData(w http.ResponseWriter, r *http.Request) {
@@ -36,34 +45,38 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
  }
  symbol := r.FormValue("sy")
  v1 := vip{
-  StartDateTime: "2019/02/01 00:00:00",
-  EndDateTime: "2019/02/01 02:00:00",
+  StartDateTime: "2019.02.01 00:00",
+  EndDateTime: "2019.02.01 02:00", // TODO: 時差を考慮. 日本時間 -7時間→世界標準時刻
   Currency: USD,
-  RelatedCurrency: []Currency{USD, CHF},
-  Title: "なんか大変そうな発表, " + symbol,
+  RelatedCurrency: []relatedCurrency{{Currency:CHF}},
+  Title: "big news, " + symbol,
   IsClose:true,
   IsDelete:true,
  }
  v2 := vip{
-  StartDateTime: "2019/02/01 03:00:00",
-  EndDateTime: "2019/02/01 05:00:00",
+  StartDateTime: "2019.02.01 03:00",
+  EndDateTime: "2019.02.01 05:00",
   Currency: USD,
-  RelatedCurrency: []Currency{USD, CHF, GBP},
-  Title: "なんか大変そうな発表2, " + symbol[3:],
+  RelatedCurrency: []relatedCurrency{{Currency:USD}, {Currency:CHF}, {Currency:GBP}},
+  Title: "big news2, " + symbol[3:],
   IsClose:true,
   IsDelete:false,
  }
  v3 := vip{
-  StartDateTime: "2019/02/01 22:00:00",
-  EndDateTime: "2019/02/01 23:00:00",
+  StartDateTime: "2019.01.28 15:00",
+  EndDateTime: "2019.01.28 20:00",
   Currency: USD,
-  RelatedCurrency: []Currency{EUR, JPY},
-  Title: "なんか大変そうな発表3, " + symbol[:3],
+  RelatedCurrency: []relatedCurrency{{Currency:EUR}, {Currency:JPY}},
+  Title: "big news3, " + symbol[:3],
   IsClose:false,
   IsDelete:true,
  }
  vp := []vip{v1, v2, v3,}
- res, err := json.Marshal(vp)
+ response := response{
+  Status:"ok",
+  Vips:vp,
+ }
+ res, err := json.Marshal(response)
  if err != nil {
   http.Error(w, err.Error(), http.StatusInternalServerError)
   return
