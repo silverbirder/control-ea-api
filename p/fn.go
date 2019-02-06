@@ -11,20 +11,13 @@ import (
 )
 
 type vip struct {
- StartDateTime string `json:"startDateTime"`
- EndDateTime string `json:"endDateTime"`
- Currency string `json:"currency"`
- RelatedCurrency []relatedCurrency `json:"relatedCurrency"`
- Title string `json:"title"`
- IsClose bool `json:"isClose"`
- IsDelete bool `json:"isDelete"`
-}
-
-type dataStore struct {
  Currency string `json: "currency"`
  Date time.Time `json: "date"`
  Title string `json: "title"`
  Volatility int `json: "volatility"`
+ IsClose bool `json:"isClose"`
+ IsDelete bool `json:"isDelete"`
+ RelatedCurrency []relatedCurrency `json:"relatedCurrency"`
 }
 
 type response struct {
@@ -53,66 +46,42 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
   fmt.Println(err)
  }
  now := time.Now()
- var f []dataStore
+ gmt := now.Add(-9 * time.Hour)
+ startGmt := time.Date(gmt.Year(), gmt.Month(), gmt.Day(), 0, 0, 0, 0, time.Local)
+ endGmt := time.Date(gmt.Year(), gmt.Month(), gmt.Day(), 23, 59, 59, 0, time.Local)
+ var f []vip
  q := datastore.
   NewQuery("VipData").
   Filter("currency =", symbol[3:]).
   Filter("volatility =", 3).
-  Filter("date >", now).
-  Filter("date <", now.Add(24 * time.Hour))
+  Filter("date >", startGmt).
+  Filter("date <", endGmt)
  _, err = dsClient.GetAll(ctx, q, &f)
- if err != nil {
-  fmt.Println(err)
- }
- var b []dataStore
+ var b []vip
  q = datastore.
   NewQuery("VipData").
   Filter("currency =", symbol[:3]).
   Filter("volatility =", 3).
-  Filter("date >", now).
-  Filter("date <", now.Add(24 * time.Hour))
+  Filter("date >", startGmt).
+  Filter("date <", endGmt)
  _, err = dsClient.GetAll(ctx, q, &b)
- if err != nil {
-  fmt.Println(err)
- }
- res, err := json.Marshal(append(f, b...))
 
- w.Write(res)
- return
+ vp := append(f, b...)
 
- v1 := vip{
-  StartDateTime: "2019.02.01 00:00",
-  EndDateTime: "2019.02.01 02:00", // TODO: 時差を考慮. 日本時間 -7時間→世界標準時刻
-  Currency: "USD",
-  RelatedCurrency: []relatedCurrency{{Currency:"CHF"}},
-  Title: "big news, " + symbol,
-  IsClose:true,
-  IsDelete:true,
+ relatedCurrencyMap := map[string][]relatedCurrency{
+  "EUR": {{"GBP"}, {"CHF"}},
+  "GBP": {{"EUR"}, {"CHF"}},
+  "CHF": {{"EUR"}, {"GBP"}},
  }
- v2 := vip{
-  StartDateTime: "2019.02.01 03:00",
-  EndDateTime: "2019.02.01 05:00",
-  Currency: "USD",
-  RelatedCurrency: []relatedCurrency{{Currency:"USD"}, {Currency:"CHF"}, {Currency:"GBP"}},
-  Title: "big news2, " + symbol[3:],
-  IsClose:true,
-  IsDelete:false,
+ for i:= 0; i < len(vp); i++ {
+  vp[i].RelatedCurrency = relatedCurrencyMap[vp[i].Currency]
  }
- v3 := vip{
-  StartDateTime: "2019.01.28 15:00",
-  EndDateTime: "2019.01.28 20:00",
-  Currency: "USD",
-  RelatedCurrency: []relatedCurrency{{Currency:"EUR"}, {Currency:"JPY"}},
-  Title: "big news3, " + symbol[:3],
-  IsClose:false,
-  IsDelete:true,
- }
- vp := []vip{v1, v2, v3,}
  response := response{
   Status:"ok",
   Vips:vp,
  }
- res, err = json.Marshal(response)
+
+ res, err := json.Marshal(response)
  if err != nil {
   http.Error(w, err.Error(), http.StatusInternalServerError)
   return
