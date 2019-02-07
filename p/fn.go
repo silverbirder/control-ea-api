@@ -18,6 +18,8 @@ type vip struct {
 	IsClose         bool              `json:"isClose"`
 	IsDelete        bool              `json:"isDelete"`
 	RelatedCurrency []relatedCurrency `json:"relatedCurrency"`
+	StartDateTime string `json:"startDateTime"`
+	EndDateTime string `json:"endDateTime"`
 }
 
 type response struct {
@@ -73,8 +75,11 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
 		"GBP": {{"EUR"}, {"CHF"}},
 		"CHF": {{"EUR"}, {"GBP"}},
 	}
+	dangerZonePeriod := 1
 	for i := 0; i < len(vp); i++ {
 		vp[i].RelatedCurrency = relatedCurrencyMap[vp[i].Currency]
+		vp[i].StartDateTime = vp[i].Date.Add(time.Duration(-1*dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
+		vp[i].EndDateTime = vp[i].Date.Add(time.Duration(dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
 	}
 	response := response{
 		Status: "ok",
