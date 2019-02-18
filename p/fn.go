@@ -17,9 +17,9 @@ type vip struct {
 	IsClose         bool              `json:"isClose"`
 	IsDelete        bool              `json:"isDelete"`
 	RelatedCurrency []relatedCurrency `json:"relatedCurrency"`
-	StartDateTime string `json:"startDateTime"`
-	EndDateTime string `json:"endDateTime"`
-	ID int64 `json:"id"`
+	StartDateTime   string            `json:"startDateTime"`
+	EndDateTime     string            `json:"endDateTime"`
+	ID              int64             `json:"id"`
 }
 
 type response struct {
@@ -32,9 +32,9 @@ type relatedCurrency struct {
 }
 
 var relatedCurrencyMap = map[string][]relatedCurrency{
-"EUR": {{"GBP"}, {"CHF"}},
-"GBP": {{"EUR"}, {"CHF"}},
-"CHF": {{"EUR"}, {"GBP"}},
+	"EUR": {{"GBP"}, {"CHF"}},
+	"GBP": {{"EUR"}, {"CHF"}},
+	"CHF": {{"EUR"}, {"GBP"}},
 }
 
 var dangerZonePeriod = 1
@@ -51,19 +51,19 @@ func SearchVipData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var vp []vip
-	jst, _ := time.LoadLocation("Asia/Tokyo")
-	jp := time.Now()
+	filterDate := time.Now()
 	date, ok := r.URL.Query()["date"]
 	if ok {
-		jp, _ = time.Parse("200601", date[0])
+		filterDate, _ = time.Parse("200601", date[0])
 	}
-	startJp := time.Date(jp.Year(), jp.Month(), jp.Day(), 0, 0, 0, 0, jst)
-	adOneMonthTim := jp.AddDate(0, 1, 0)
-	endJp := time.Date(adOneMonthTim.Year(), adOneMonthTim.Month(), adOneMonthTim.Day(), 0, 0, 0, 0, jst)
+	startJp := time.Date(filterDate.Year(), filterDate.Month(), filterDate.Day(), 0, 0, 0, 0, time.UTC)
+	adOneMonthTim := filterDate.AddDate(0, 1, 0)
+	endJp := time.Date(adOneMonthTim.Year(), adOneMonthTim.Month(), adOneMonthTim.Day(), 0, 0, 0, 0, time.UTC)
 	q := datastore.
 		NewQuery("VipData").
 		Filter("date >=", startJp).
-		Filter("date <", endJp)
+		Filter("date <", endJp).
+		Order("date")
 	keys, err := dsClient.GetAll(ctx, q, &vp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -89,6 +89,8 @@ func SearchVipData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	// for dev
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Write(res)
 }
 func UpdateVipData(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +138,8 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
 		Filter("currency =", symbol[3:]).
 		Filter("volatility =", 3).
 		Filter("date >=", startJp).
-		Filter("date <=", endJp)
+		Filter("date <=", endJp).
+		Order("date")
 	_, err = dsClient.GetAll(ctx, q, &f)
 	var b []vip
 	q = datastore.
@@ -144,7 +147,8 @@ func GetVipData(w http.ResponseWriter, r *http.Request) {
 		Filter("currency =", symbol[:3]).
 		Filter("volatility =", 3).
 		Filter("date >", startJp).
-		Filter("date <", endJp)
+		Filter("date <", endJp).
+		Order("date")
 	_, err = dsClient.GetAll(ctx, q, &b)
 	vp := append(f, b...)
 
