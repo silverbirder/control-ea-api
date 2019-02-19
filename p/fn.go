@@ -4,10 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"cloud.google.com/go/datastore"
 )
+
+type saveVip struct {
+	Currency   string    `json: "currency"`
+	Date       time.Time `json: "date"`
+	Title      string    `json: "title"`
+	Volatility int       `json: "volatility"`
+	IsClose    bool      `json:"isClose"`
+	IsDelete   bool      `json:"isDelete"`
+}
 
 type vip struct {
 	Currency        string            `json: "currency"`
@@ -94,20 +104,43 @@ func SearchVipData(w http.ResponseWriter, r *http.Request) {
 	w.Write(res)
 }
 func UpdateVipData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "not get", http.StatusInternalServerError)
+	if r.Method != "POST" {
+		http.Error(w, "not post", http.StatusInternalServerError)
 		return
 	}
-	ctx := context.Background()
-	_, err := datastore.NewClient(ctx, "ma-web-tools")
+	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	//if _, err = dsClient.Put(ctx, k, &e); err != nil {
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
+	id, _ := strconv.ParseInt(r.Form.Get("id"), 10, 64)
+	currency := r.Form.Get("currency")
+	title := r.Form.Get("title")
+	date, _ := time.Parse("2006-01-02 15:04:05", r.Form.Get("date"))
+	volatility, _ := strconv.Atoi(r.Form.Get("volatility"))
+	isClose, _ := strconv.ParseBool(r.Form.Get("isClose"))
+	isDelete, _ := strconv.ParseBool(r.Form.Get("isDelete"))
+	v := saveVip{
+		Currency:   currency,
+		Title:      title,
+		Volatility: volatility,
+		IsClose:    isClose,
+		IsDelete:   isDelete,
+		Date:       date,
+	}
+	ctx := context.Background()
+	dsClient, err := datastore.NewClient(ctx, "ma-web-tools")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	k := datastore.IDKey("VipData", id, nil)
+	if _, err = dsClient.Put(ctx, k, &v); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// for dev
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 }
 
 func GetVipData(w http.ResponseWriter, r *http.Request) {
