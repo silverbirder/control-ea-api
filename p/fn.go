@@ -70,14 +70,17 @@ func SearchVipData(w http.ResponseWriter, r *http.Request) {
 	adOneMonthTim := filterDate.AddDate(0, 1, 0)
 	endJp := time.Date(adOneMonthTim.Year(), adOneMonthTim.Month(), adOneMonthTim.Day(), 0, 0, 0, 0, time.UTC)
 	q := datastore.
-		NewQuery("VipData").
-		Filter("date >=", startJp).
-		Filter("date <", endJp).
-		Order("date")
+		NewQuery("FxVipData").
+		Filter("Date >=", startJp).
+		Filter("Date <", endJp).
+		Order("Date")
 	keys, err := dsClient.GetAll(ctx, q, &vp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if vp == nil {
+		vp = []vip{}
 	}
 	for i := 0; i < len(vp); i++ {
 		vp[i].RelatedCurrency = relatedCurrencyMap[vp[i].Currency]
@@ -103,6 +106,72 @@ func SearchVipData(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Write(res)
 }
+func GetVipData(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "not post", http.StatusInternalServerError)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	symbol := r.FormValue("sy")
+
+	ctx := context.Background()
+	dsClient, err := datastore.NewClient(ctx, "ma-web-tools")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jst, _ := time.LoadLocation("Asia/Tokyo")
+	jp := time.Now()
+	startJp := time.Date(jp.Year(), jp.Month(), jp.Day(), 0, 0, 0, 0, jst)
+	endJp := time.Date(jp.Year(), jp.Month(), jp.Day(), 23, 59, 59, 0, jst)
+	var f []vip
+	q := datastore.
+		NewQuery("FxVipData").
+		Filter("Currency =", symbol[3:]).
+		Filter("Volatility =", 3).
+		Filter("Date >=", startJp).
+		Filter("Date <=", endJp).
+		Order("Date")
+	_, err = dsClient.GetAll(ctx, q, &f)
+	var b []vip
+	q = datastore.
+		NewQuery("FxVipData").
+		Filter("Currency =", symbol[:3]).
+		Filter("Volatility =", 3).
+		Filter("Date >", startJp).
+		Filter("Date <", endJp).
+		Order("Date")
+	_, err = dsClient.GetAll(ctx, q, &b)
+	vp := append(f, b...)
+	if vp == nil {
+		vp = []vip{}
+	}
+	for i := 0; i < len(vp); i++ {
+		vp[i].RelatedCurrency = relatedCurrencyMap[vp[i].Currency]
+		if vp[i].RelatedCurrency == nil {
+			vp[i].RelatedCurrency = []relatedCurrency{}
+		}
+		vp[i].StartDateTime = vp[i].Date.Add(time.Duration(-1*dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
+		vp[i].EndDateTime = vp[i].Date.Add(time.Duration(dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
+	}
+	response := response{
+		Status: "ok",
+		Vips:   vp,
+	}
+
+	res, err := json.Marshal(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(res)
+}
+
 func UpdateVipData(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "not post", http.StatusInternalServerError)
@@ -134,75 +203,11 @@ func UpdateVipData(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	k := datastore.IDKey("VipData", id, nil)
+	k := datastore.IDKey("FxVipData", id, nil)
 	if _, err = dsClient.Put(ctx, k, &v); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// for dev
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-}
-
-func GetVipData(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "not post", http.StatusInternalServerError)
-		return
-	}
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	symbol := r.FormValue("sy")
-
-	ctx := context.Background()
-	dsClient, err := datastore.NewClient(ctx, "ma-web-tools")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	jst, _ := time.LoadLocation("Asia/Tokyo")
-	jp := time.Now()
-	startJp := time.Date(jp.Year(), jp.Month(), jp.Day(), 0, 0, 0, 0, jst)
-	endJp := time.Date(jp.Year(), jp.Month(), jp.Day(), 23, 59, 59, 0, jst)
-	var f []vip
-	q := datastore.
-		NewQuery("VipData").
-		Filter("currency =", symbol[3:]).
-		Filter("volatility =", 3).
-		Filter("date >=", startJp).
-		Filter("date <=", endJp).
-		Order("date")
-	_, err = dsClient.GetAll(ctx, q, &f)
-	var b []vip
-	q = datastore.
-		NewQuery("VipData").
-		Filter("currency =", symbol[:3]).
-		Filter("volatility =", 3).
-		Filter("date >", startJp).
-		Filter("date <", endJp).
-		Order("date")
-	_, err = dsClient.GetAll(ctx, q, &b)
-	vp := append(f, b...)
-
-	for i := 0; i < len(vp); i++ {
-		vp[i].RelatedCurrency = relatedCurrencyMap[vp[i].Currency]
-		if vp[i].RelatedCurrency == nil {
-			vp[i].RelatedCurrency = []relatedCurrency{}
-		}
-		vp[i].StartDateTime = vp[i].Date.Add(time.Duration(-1*dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
-		vp[i].EndDateTime = vp[i].Date.Add(time.Duration(dangerZonePeriod) * time.Hour).Format("2006.01.02 15:04")
-	}
-	response := response{
-		Status: "ok",
-		Vips:   vp,
-	}
-
-	res, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(res)
 }

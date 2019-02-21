@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/", p.GetVipData)
-	http.HandleFunc("/search", p.SearchVipData)
-	http.HandleFunc("/update", p.UpdateVipData)
+	http.HandleFunc("/GetVipData", p.GetVipData)
+	http.HandleFunc("/SearchVipData", p.SearchVipData)
+	http.HandleFunc("/UpdateVipData", p.UpdateVipData)
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal("ListenAndServe: ", err)
